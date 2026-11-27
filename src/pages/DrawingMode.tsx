@@ -45,7 +45,7 @@ import {
 } from '../lib/drawing';
 import { type OrthoDir, arcShape, circleThrough, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, normalizeSnapKinds, segmentIntersection, type SnapKind, type SnapSeg } from '../lib/snap';
-import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
+import { exampleInUnit, inputInUnit, inputVector, parseCadInput, vectorInfo, type CadUnit } from '../lib/cad-input';
 import { refGuide, angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, offsetPath, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
 import { DEFAULT_HATCH_SETTING, hatchLabel, hatchPicker, hatchStyle, type HatchSetting } from '../components/HatchPicker';
 import { arrayDialog } from '../components/ArrayDialog';
@@ -393,12 +393,16 @@ export function useDrawing(opts: {
     par: null,
     held: { h: null, v: null },
   });
+  /** Fangpunkt, auf dem der Zeiger gerade steht – gemerkt wird er erst nach der Verweilzeit (wie im CAD) */
+  const dwell = useRef<{ p: Point; timer: number } | null>(null);
   // Werkzeug gewechselt oder beendet (Esc, Auswahl): Hilfsanzeigen der Spuren (grüne Richtungslinie, orange Bezugslinie)
   // sofort weg – sonst bleiben sie stehen, bis die Maus das nächste Mal mit einem Zeichenwerkzeug bewegt wird
   const trackTool = useRef(tool);
   if (trackTool.current !== tool) {
     trackTool.current = tool;
     track.current = { acquired: [], lines: [], edge: null, par: null, held: { h: null, v: null } };
+    if (dwell.current) clearTimeout(dwell.current.timer);
+    dwell.current = null;
   }
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
@@ -414,6 +418,31 @@ export function useDrawing(opts: {
   const [dyn, setDyn] = useState<{ ref: Point; dir: Point | null; dist: string; angle: string; field: 'dist' | 'angle' } | null>(null);
   /** Richtung der Linie fest (Grad, 0° = rechts, gegen den Uhrzeigersinn) – die Länge zieht man mit der Maus */
   const [angleLock, setAngleLock] = useState<number | null>(null);
+  /** Spurlinien: so lange (ms) muss der Zeiger auf einem Fangpunkt stehen, bis er gemerkt wird (je Gerät; 0 = sofort) */
+  const [trackDwell, setTrackDwellState] = useState(() => {
+    const n = Number(pref('trackDwell', '300'));
+    return Number.isFinite(n) ? Math.min(2000, Math.max(0, n)) : 300;
+  });
+  const setTrackDwell = (ms: number) => {
+    setTrackDwellState(ms);
+    storePref('trackDwell', String(ms));
+  };
+  /** Einheit für eingetippte Längen (je Gerät): m, cm oder mm – gespeichert wird immer in Meter */
+  const [cadUnit, setCadUnitState] = useState<CadUnit>(() => {
+    const u = pref('cadUnit', 'm');
+    return u === 'cm' || u === 'mm' ? u : 'm';
+  });
+  const setCadUnit = (u: CadUnit) => {
+    setCadUnitState(u);
+    storePref('cadUnit', u);
+  };
+  /** Eingabe lesen, Längen in Meter umgerechnet */
+  const lenIn = (text: string) => inputInUnit(parseCadInput(text), cadUnit);
+  /** Länge (Meter) in der eingestellten Einheit, ohne Einheit */
+  const fmtU = (m: number) => (cadUnit === 'm' ? formatMeasure(m) : exampleInUnit(Math.round(m * 1000) / 1000, cadUnit));
+  /** Beispielwert für Hinweise in der eingestellten Einheit */
+  const ex = (m: number) => exampleInUnit(m, cadUnit);
+  const [, bump] = useState(0);
 
   /** zuletzt benutzte Funktion (für „Enter wiederholt“) */
   const lastTool = useRef<DrawTool | null>(tool !== 'select' ? tool : null);
@@ -587,6 +616,32 @@ export function useDrawing(opts: {
   // ausdrücklich eingeschaltet. Freie Punkte und Längen laufen in ganzen Millimetern – gezogene Formen
   // speichern so 2,347 m statt 2,34781 m; angezeigt werden die Maße mit 2 Nachkommastellen.
 
+  /** Fangpunkt merken (zuletzt bis zu 4; erneut angefahren = wieder der neueste) */
+  const acquire = (p: Point) => {
+    const acq = track.current.acquired.filter((a) => Math.hypot(a.x - p.x, a.y - p.y) > 1e-6);
+    track.current.acquired = [...acq, p].slice(-4);
+  };
+  /** Zeiger steht auf einem Fangpunkt: nach der Verweilzeit merken – ohne dass die Maus sich bewegen muss */
+  const dwellOn = (p: Point) => {
+    const c = dwell.current;
+    if (c && Math.hypot(c.p.x - p.x, c.p.y - p.y) < 1e-9) return;
+    dwellOff();
+    if (trackDwell <= 0) return acquire(p);
+    dwell.current = {
+      p,
+      timer: window.setTimeout(() => {
+        dwell.current = null;
+        acquire(p);
+        bump((n) => n + 1);
+      }, trackDwell),
+    };
+  };
+  const dwellOff = () => {
+    if (dwell.current) clearTimeout(dwell.current.timer);
+    dwell.current = null;
+  };
+  useEffect(() => dwellOff, []);
+
   const snap: SnapFn = (p, ctx) => {
     // eingerastete Spurlinien des letzten Schritts (halten etwas weiter, damit sie nicht flackern)
     const held = track.current.held;
@@ -628,6 +683,22 @@ export function useDrawing(opts: {
     const free = isCoarse() && ctx.tool === 'probe' ? { point: 10 / pxPerM, line: 6 / pxPerM } : undefined;
     const hit = snapOn ? findSnap(pm, others, tol, [], { kinds: snapKinds, from: from0, circles: arcCircles(ctx.movingId), lines: guideSegs, free }) : null;
     if (hit?.kind === 'nearest' && hit.seg) track.current.edge = hit.seg;
+    // Spurlinien: feste Objektpunkte erst merken, wenn der Zeiger kurz darauf stehen bleibt (Verweilzeit)
+    // nur feste Objektpunkte merken (Lotpunkt/Tangente hängen vom letzten Punkt ab)
+    if (trackOn && snapOn && hit && TRACK_KINDS.has(hit.kind)) dwellOn(hit.point);
+    else dwellOff();
+    // Abstand auf der Spurlinie getippt (vor dem Anfangspunkt): der Punkt liegt genau im getippten Abstand vom
+    // gemerkten Punkt, auf der Seite des Zeigers – ein Klick setzt ihn dort (wie Enter); die Spurlinie bleibt
+    if (dyn?.dir && !ctx.from && ctx.tool === 'line') {
+      track.current.lines = [{ from: dyn.ref, axis: Math.abs(dyn.dir.x) > Math.abs(dyn.dir.y) ? 'h' : 'v' }];
+      const t = typedTrack(dyn, pm);
+      if (t) return { x: t.x * k, y: t.y * k, kind: 'track' };
+    }
+    // Länge bzw. Winkel nach dem Anfangspunkt getippt: ein Klick setzt den Endpunkt genau dort (wie Enter)
+    if (dyn && !dyn.dir && from0 && ctx.tool === 'line' && !dyn.dist.includes(';')) {
+      const t = typedEnd(dyn, from0, pm);
+      if (t) return { x: t.x * k, y: t.y * k };
+    }
     let q: Point = pm;
     let kind: SnapKind | undefined;
     // Richtung fest (nur Winkel eingegeben): der Endpunkt liegt auf dem Strahl – Maus bzw. Fangpunkt bestimmen nur die Länge
@@ -668,13 +739,8 @@ export function useDrawing(opts: {
       if (hit && Math.hypot(q.x - hit.point.x, q.y - hit.point.y) < 1e-9) kind = hit.kind;
       return { x: q.x * k, y: q.y * k, kind };
     }
-    // Spurlinien: eindeutige Fangpunkte merken; ohne Fangpunkt an der Waagrechten/Senkrechten durch einen
-    // gemerkten Punkt (oder den letzten Punkt) einrasten – an zweien davon im Schnittpunkt
-    // nur feste Objektpunkte merken (Lotpunkt/Tangente hängen vom letzten Punkt ab)
-    if (trackOn && snapOn && hit && TRACK_KINDS.has(hit.kind)) {
-      const acq = track.current.acquired.filter((a) => Math.hypot(a.x - hit.point.x, a.y - hit.point.y) > 1e-6);
-      track.current.acquired = [...acq, hit.point].slice(-4);
-    }
+    // Spurlinien: ohne Fangpunkt an der Waagrechten/Senkrechten durch einen gemerkten Punkt (oder den letzten
+    // Punkt) einrasten – an zweien davon im Schnittpunkt
     // Parallel / rechtwinklig zur zuletzt angefahrenen Kante (vom letzten Punkt aus)
     if (snapOn && !hit && from0 && track.current.edge && snapKinds.includes('parallel') && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
       const [ea, eb] = track.current.edge;
@@ -876,8 +942,8 @@ export function useDrawing(opts: {
    */
   /** Hilfslinie aus zwei Bezugspunkten im eingetippten Abstand (auch im Aufmaß – dort gibt es keine Befehlszeile) */
   const guideDistance = (text: string): string | null => {
-    const d = parseCadInput(text);
-    if (!guideRef || !d || d.kind !== 'dist') return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
+    const d = lenIn(text);
+    if (!guideRef || !d || d.kind !== 'dist') return `Bitte den Abstand in ${cadUnit} eingeben, z. B. ${ex(0.25)}.`;
     if (pickPts.length < 2) return 'Zuerst die zwei Bezugspunkte antippen.';
     // Seite bzw. Richtung: dort, wo der Zeiger steht
     const at = hoverRef.current;
@@ -887,8 +953,8 @@ export function useDrawing(opts: {
   };
   const applyInput = (text: string): string | null => {
     if (tool === 'fillet') {
-      const d = parseCadInput(text);
-      if (!d || d.kind !== 'dist' || d.len < 0) return 'Bitte den Radius in m eingeben, z. B. 0,5 (0 = Ecke).';
+      const d = lenIn(text);
+      if (!d || d.kind !== 'dist' || d.len < 0) return `Bitte den Radius in ${cadUnit} eingeben, z. B. ${ex(0.5)} (0 = Ecke).`;
       setFilletR(d.len);
       return null;
     }
@@ -923,24 +989,24 @@ export function useDrawing(opts: {
       if (!pickPts.length) return 'Zuerst den Basispunkt antippen.';
       if (refMode) {
         if (pickPts.length < 3) return 'Zuerst zwei Punkte der bekannten Strecke antippen.';
-        if (!d || d.kind !== 'dist' || !(d.len > 0)) return 'Bitte die neue Länge in m eingeben, z. B. 4,5.';
+        if (!d || d.kind !== 'dist' || !(d.len > 0)) return `Bitte die neue Länge in ${cadUnit} eingeben, z. B. ${ex(4.5)}.`;
         const ref = dist2(pickPts[1], pickPts[2]);
-        return runScale(pickPts[0], d.len / ref), null;
+        return runScale(pickPts[0], (lenIn(text) as { len: number }).len / ref), null;
       }
       if (d?.kind === 'dist' && d.len > 0) return runScale(pickPts[0], d.len), null;
       if (d?.kind === 'rel' && d.dx > 0 && d.dy > 0) return runScale(pickPts[0], d.dx, d.dy), null;
       return 'Bitte einen Faktor eingeben, z. B. 2 oder 0,5 – oder X;Y getrennt, z. B. 2;1.';
     }
     if (tool === 'wall') {
-      const d = parseCadInput(text);
+      const d = lenIn(text);
       if (d?.kind === 'dist' && d.len > 0) return setWallDefaults(d.len), null;
       if (d?.kind === 'rel' && d.dx > 0 && d.dy >= 0) return setWallDefaults(d.dx, d.dy), null;
-      return 'Bitte die Wandstärke in m eingeben, z. B. 0,25 – oder Stärke;Höhe, z. B. 0,25;2,8.';
+      return `Bitte die Wandstärke in ${cadUnit} eingeben, z. B. ${ex(0.25)} – oder Stärke;Höhe, z. B. ${ex(0.25)};${ex(2.8)}.`;
     }
     if (tool === 'symbol') {
       const def = symbolDef(symbolId);
-      const d = parseCadInput(text);
-      if (!def || !d || d.kind === 'polar') return 'Bitte die Breite in m eingeben, z. B. 0,9 – oder Breite;Tiefe, z. B. 1,2;0,3.';
+      const d = lenIn(text);
+      if (!def || !d || d.kind === 'polar') return `Bitte die Breite in ${cadUnit} eingeben, z. B. ${ex(0.9)} – oder Breite;Tiefe, z. B. ${ex(1.2)};${ex(0.3)}.`;
       if (d.kind === 'dist') {
         if (!(d.len > 0)) return 'Die Breite muss größer als 0 sein.';
         setSymbolSize({ w: d.len, h: def.keepAspect ? (d.len * def.h) / def.w : (symbolSize?.h ?? def.h), depth: symbolSize?.depth });
@@ -951,20 +1017,20 @@ export function useDrawing(opts: {
       return null;
     }
     if (tool === 'offset') {
-      const d = parseCadInput(text);
-      if (!d || d.kind !== 'dist' || !(d.len > 0)) return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
+      const d = lenIn(text);
+      if (!d || d.kind !== 'dist' || !(d.len > 0)) return `Bitte den Abstand in ${cadUnit} eingeben, z. B. ${ex(0.25)}.`;
       setOffsetDist(d.len);
       setOffsetThrough(false);
       return null;
     }
     if (tool === 'join') {
-      const d = parseCadInput(text);
-      if (!d || d.kind !== 'dist' || d.len < 0) return 'Bitte die größte Lücke in m eingeben, z. B. 0,05.';
+      const d = lenIn(text);
+      if (!d || d.kind !== 'dist' || d.len < 0) return `Bitte die größte Lücke in ${cadUnit} eingeben, z. B. ${ex(0.05)}.`;
       setJoinTol(d.len);
       return null;
     }
-    const inp = parseCadInput(text);
-    if (!inp) return 'Bitte z. B. 1,25 oder 2,5;0 oder 3<45 eingeben.';
+    const inp = lenIn(text);
+    if (!inp) return `Bitte z. B. ${ex(1.25)} oder ${ex(2.5)};0 oder ${ex(3)}<45 eingeben.`;
     const base = cmdBase ? { x: cmdBase.x / k, y: cmdBase.y / k } : null;
     const hover = hoverRef.current ? { x: hoverRef.current.x / k, y: hoverRef.current.y / k } : null;
     const dir = base && hover ? { x: hover.x - base.x, y: hover.y - base.y } : null;
@@ -972,7 +1038,8 @@ export function useDrawing(opts: {
     const tracked = tool === 'line' && base && inp.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, base) : null;
     if (tracked && base) {
       viewer.current?.armClick(null);
-      create('line', lineShape(base, tracked));
+      create('line', lineShape(base, tracked), {}, true);
+      viewer.current?.armClick({ x: tracked.x * k, y: tracked.y * k }); // wie im CAD: die nächste Linie beginnt am Endpunkt
       return null;
     }
     const v = inputVector(inp, dir);
@@ -995,7 +1062,9 @@ export function useDrawing(opts: {
     if (tool === 'line' && base) {
       viewer.current?.armClick(null);
       if (Math.hypot(v.x, v.y) < 1e-6) return 'Die Länge muss größer als 0 sein.';
-      create('line', lineShape(base, { x: base.x + v.x, y: base.y + v.y }));
+      const end = { x: base.x + v.x, y: base.y + v.y };
+      create('line', lineShape(base, end), {}, true);
+      viewer.current?.armClick({ x: end.x * k, y: end.y * k }); // wie im CAD: die nächste Linie beginnt am Endpunkt (Esc beendet)
       return null;
     }
     return 'Hier ist keine Eingabe möglich.';
@@ -1127,7 +1196,7 @@ export function useDrawing(opts: {
   };
   /** Erster Punkt aus einem getippten Abstand auf der Spurlinie (Seitenkoordinaten); null = keine Spurlinie bzw. kein Abstand */
   const trackPoint = (text: string): Point | null => {
-    const inp = parseCadInput(text);
+    const inp = lenIn(text);
     const t = inp?.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, null) : null;
     return t && { x: t.x * k, y: t.y * k };
   };
@@ -1135,6 +1204,35 @@ export function useDrawing(opts: {
   const dynNum = (s: string) => {
     const v = Number(s.trim().replace(',', '.'));
     return s.trim() && Number.isFinite(v) ? v : null;
+  };
+  /** getippte Länge in Meter (Eingabe in der eingestellten Einheit) */
+  const dynLen = (s: string) => {
+    const v = dynNum(s);
+    return v === null ? null : (inputInUnit({ kind: 'dist', len: v }, cadUnit) as { len: number }).len;
+  };
+  /**
+   * Punkt im getippten Abstand vom gemerkten Punkt (Meter): auf der Spurlinie zur Seite des Zeigers bzw. im getippten
+   * Winkel. null = noch kein Abstand getippt.
+   */
+  const typedTrack = (d: { ref: Point; dir: Point | null; dist: string; angle: string }, at: Point | null): Point | null => {
+    const len = dynLen(d.dist);
+    if (!d.dir || !(len && len > 0)) return null;
+    const ang = dynNum(d.angle);
+    if (ang !== null) {
+      const v = inputVector({ kind: 'polar', len, angle: ang })!;
+      return { x: d.ref.x + v.x, y: d.ref.y + v.y };
+    }
+    const s = at && (at.x - d.ref.x) * d.dir.x + (at.y - d.ref.y) * d.dir.y < 0 ? -1 : 1;
+    return { x: d.ref.x + s * d.dir.x * len, y: d.ref.y + s * d.dir.y * len };
+  };
+  /** Endpunkt der Linie aus getippter Länge/Winkel (fehlender Wert aus der Maus); null = nichts getippt */
+  const typedEnd = (d: { dist: string; angle: string }, from: Point, at: Point): Point | null => {
+    const len = dynLen(d.dist);
+    const ang = dynNum(d.angle) ?? angleLock;
+    if (len === null && dynNum(d.angle) === null) return null;
+    const live = (((Math.atan2(-(at.y - from.y), at.x - from.x) * 180) / Math.PI) % 360 + 360) % 360;
+    const v = inputVector({ kind: 'polar', len: len ?? Math.hypot(at.x - from.x, at.y - from.y), angle: ang ?? live })!;
+    return { x: from.x + v.x, y: from.y + v.y };
   };
   /**
    * Eingabe am Zeiger: 'polar' = Abstand + Winkel (Linie, Verschieben, Kopieren, Spiegeln nach dem Basispunkt),
@@ -1144,14 +1242,14 @@ export function useDrawing(opts: {
   /** Rechteck/Kreis aus dem Kasten (Meter): getippte Breite/Höhe, sonst aus der Maus; Kreis: nur die Breite getippt = Durchmesser */
   const dynBox = (d: { ref: Point; dist: string; angle: string }, hv: Point | null) => {
     const live = hv ? { x: hv.x / k - d.ref.x, y: hv.y / k - d.ref.y } : { x: 0, y: 0 };
-    const tw = dynNum(d.dist);
+    const tw = dynLen(d.dist);
     const w = tw ?? Math.abs(live.x);
-    const h = dynNum(d.angle) ?? (tool === 'ellipse' && tw !== null ? w : Math.abs(live.y));
+    const h = dynLen(d.angle) ?? (tool === 'ellipse' && tw !== null ? w : Math.abs(live.y));
     return { x: live.x < 0 ? d.ref.x - w : d.ref.x, y: live.y < 0 ? d.ref.y - h : d.ref.y, w, h };
   };
   /** Enter im Kasten: Punkt im Abstand (und Winkel) setzen bzw. nur die Richtung festhalten */
   const commitDyn = (d: NonNullable<typeof dyn>) => {
-    const len = dynNum(d.dist);
+    const len = dynLen(d.dist);
     const ang = dynNum(d.angle);
     if (dynKind === 'one') {
       const err = applyInput(d.dist);
@@ -1168,10 +1266,11 @@ export function useDrawing(opts: {
       return;
     }
     if (d.dir) {
-      // Anfangspunkt vom gemerkten Punkt aus: auf der Spurlinie bzw. im eingegebenen Winkel
-      if (!(len && len > 0)) return toast('Bitte einen Abstand größer als 0 eingeben, z. B. 1,25.', 'info');
-      const v = ang !== null ? inputVector({ kind: 'polar', len, angle: ang })! : { x: d.dir.x * len, y: d.dir.y * len };
-      viewer.current?.armClick({ x: (d.ref.x + v.x) * k, y: (d.ref.y + v.y) * k });
+      // Anfangspunkt vom gemerkten Punkt aus: auf der Spurlinie (Seite des Zeigers) bzw. im eingegebenen Winkel
+      const h = hoverRef.current;
+      const t = typedTrack(d, h && { x: h.x / k, y: h.y / k });
+      if (!t) return toast(`Bitte einen Abstand größer als 0 eingeben, z. B. ${ex(1.25)}.`, 'info');
+      viewer.current?.armClick({ x: t.x * k, y: t.y * k });
       setDyn(null);
       return;
     }
@@ -1235,15 +1334,15 @@ export function useDrawing(opts: {
    * (vom zuletzt gesetzten Punkt, Seitenkoordinaten). Liefert den Punkt oder eine Fehlermeldung.
    */
   const polyNext = (text: string, last: Point): Point | string => {
-    const inp = parseCadInput(text);
-    if (!inp) return 'Bitte z. B. 2,5 (Länge in Zeigerrichtung), 2,5;0 (ΔX;ΔY) oder 3<90 (Länge<Winkel) eingeben.';
+    const inp = lenIn(text);
+    if (!inp) return `Bitte z. B. ${ex(2.5)} (Länge in Zeigerrichtung), ${ex(2.5)};0 (ΔX;ΔY) oder ${ex(3)}<90 (Länge<Winkel) eingeben.`;
     // Zeiger auf der Spurlinie eines gemerkten Punkts: Abstand von diesem Punkt
     const tracked = inp.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, { x: last.x / k, y: last.y / k }) : null;
     if (tracked) return { x: tracked.x * k, y: tracked.y * k };
     const hover = hoverRef.current;
     const dir = hover ? { x: (hover.x - last.x) / k, y: (hover.y - last.y) / k } : null;
     const v = inputVector(inp, dir && Math.hypot(dir.x, dir.y) > 1e-6 ? dir : null);
-    if (!v) return 'Richtung fehlt: mit Maus bzw. Stift in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben (z. B. 3<90 = 3 m nach oben).';
+    if (!v) return `Richtung fehlt: mit Maus bzw. Stift in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben (z. B. ${ex(3)}<90 = ${ex(3)} ${cadUnit} nach oben).`;
     if (Math.hypot(v.x, v.y) < 1e-9) return 'Die Länge muss größer als 0 sein.';
     return { x: last.x + v.x * k, y: last.y + v.y * k };
   };
@@ -2308,7 +2407,7 @@ export function useDrawing(opts: {
       const p = toScreen(view, hover);
       return (
         <g className="dyn-input" data-testid="dyn-input">
-          {cell(p.x + 18, p.y + 16, 82, !!dyn, !!dyn, `${dyn?.dist || formatMeasure(offsetDist)} m`, 'dyn-dist')}
+          {cell(p.x + 18, p.y + 16, 82, !!dyn, !!dyn, `${dyn?.dist || fmtU(offsetDist)} ${cadUnit}`, 'dyn-dist')}
         </g>
       );
     }
@@ -2321,8 +2420,8 @@ export function useDrawing(opts: {
       return (
         <g className="dyn-input" data-testid="dyn-input">
           {dyn && b.w > 0 && b.h > 0 && <path d={pathToSvg(shapePath(shapeToPage({ ...rectFromMeasures(b, b.w, b.h), type: tool }, k)), (q) => toScreen(view, q))} className="dyn-goal" data-testid="dyn-goal" />}
-          {cell(p.x + 18, p.y + 16, 96, dyn?.field === 'dist', !!dyn?.dist, `B ${dyn?.dist || formatMeasure(b.w)} m`, 'dyn-dist')}
-          {cell(p.x + 120, p.y + 16, 96, dyn?.field === 'angle', !!dyn?.angle, `H ${dyn?.angle || formatMeasure(b.h)} m`, 'dyn-angle')}
+          {cell(p.x + 18, p.y + 16, 96, dyn?.field === 'dist', !!dyn?.dist, `B ${dyn?.dist || fmtU(b.w)} ${cadUnit}`, 'dyn-dist')}
+          {cell(p.x + 120, p.y + 16, 96, dyn?.field === 'angle', !!dyn?.angle, `H ${dyn?.angle || fmtU(b.h)} ${cadUnit}`, 'dyn-angle')}
         </g>
       );
     }
@@ -2336,7 +2435,7 @@ export function useDrawing(opts: {
     const bx = at.x + 18;
     const by = at.y + 16;
     const fmtA = (a: number) => `${Math.round(a * 10) / 10}`.replace('.', ',');
-    const distText = dyn?.dist || formatMeasure(live.d);
+    const distText = dyn?.dist || fmtU(live.d);
     const angText = dyn?.angle || fmtA(angleLock ?? live.a);
     const arcOn = dyn?.field === 'angle' || !!dyn?.angle || angleLock !== null;
     const R = 64;
@@ -2344,7 +2443,7 @@ export function useDrawing(opts: {
     const e = pt(showA, R);
     const ticks = Array.from({ length: 13 }, (_, i) => i * 15);
     // getippte Werte: Vorschau der Linie, wie sie mit Enter entsteht (fehlender Wert aus der Maus)
-    const typedD = dyn ? dynNum(dyn.dist) : null;
+    const typedD = dyn ? dynLen(dyn.dist) : null;
     const goal = dyn && (typedD !== null || typedA !== null) ? inputVector({ kind: 'polar', len: typedD ?? live.d, angle: showA }) : null;
     const g = goal && toScreen(view, { x: (base.x + goal.x) * k, y: (base.y + goal.y) * k });
     return (
@@ -2368,7 +2467,7 @@ export function useDrawing(opts: {
         )}
         <rect x={bx} y={by} width={82} height={24} rx={4} className={`dyn-cell${dyn?.field === 'dist' ? ' on' : ''}${dyn?.dist ? ' typed' : ''}`} />
         <text x={bx + 8} y={by + 16} className="dyn-text" data-testid="dyn-dist">
-          {distText} m
+          {distText} {cadUnit}
         </text>
         <rect x={bx + 88} y={by} width={60} height={24} rx={4} className={`dyn-cell${dyn?.field === 'angle' ? ' on' : ''}${dyn?.angle || angleLock !== null ? ' typed' : ''}`} />
         <text x={bx + 96} y={by + 16} className="dyn-text" data-testid="dyn-angle">
@@ -2598,19 +2697,29 @@ export function useDrawing(opts: {
               const s2 = toScreen(view, { x: l.from.x * k, y: l.from.y * k });
               return <path key={`l${i}`} d={l.axis === 'h' ? `M-20000 ${s2.y}H20000` : `M${s2.x} -20000V20000`} className="track-line" data-testid="track-line" data-axis={l.axis} />;
             })}
+            {track.current.lines.length === 2 &&
+              (() => {
+                // zwei Spurlinien: der Punkt liegt genau in ihrem Schnittpunkt
+                const [l1, l2] = track.current.lines;
+                const hl = l1.axis === 'h' ? l1 : l2;
+                const vl = l1.axis === 'h' ? l2 : l1;
+                const c = toScreen(view, { x: vl.from.x * k, y: hl.from.y * k });
+                return <path d={`M${c.x - 7} ${c.y - 7}l14 14m0 -14l-14 14`} className="track-cross" data-testid="track-intersection" />;
+              })()}
             {dyn?.dir &&
               (() => {
                 // getippter Abstand auf der Spurlinie: Strecke vom gemerkten Punkt zum neuen Anfangspunkt
-                const d = dynNum(dyn.dist) ?? 0;
+                // Seite der Spurlinie: dort, wo der Zeiger steht
                 const ang = dynNum(dyn.angle);
-                const v = ang !== null ? inputVector({ kind: 'polar', len: d, angle: ang })! : { x: dyn.dir.x * d, y: dyn.dir.y * d };
+                const t = typedTrack(dyn, hover && { x: hover.x / k, y: hover.y / k }) ?? dyn.ref;
                 const a = toScreen(view, { x: dyn.ref.x * k, y: dyn.ref.y * k });
-                const b = toScreen(view, { x: (dyn.ref.x + v.x) * k, y: (dyn.ref.y + v.y) * k });
+                const b = toScreen(view, { x: t.x * k, y: t.y * k });
                 return (
                   <g data-testid="track-dist">
                     <path d={`M${a.x} ${a.y}L${b.x} ${b.y}M${b.x - 5} ${b.y - 5}l10 10m0 -10l-10 10`} className="track-acquired" />
                     <text x={b.x + 10} y={b.y + 24} className="track-dist-label">
-                      {dyn.dist || '…'} m{ang !== null ? ` · ${dyn.angle}°` : ''} – Enter setzt den Punkt
+                      {dyn.dist || '…'} {cadUnit}
+                      {ang !== null ? ` · ${dyn.angle}°` : ''} – Klick oder Enter setzt den Punkt
                     </text>
                   </g>
                 );
@@ -2637,6 +2746,12 @@ export function useDrawing(opts: {
     orthoOn,
     trackOn,
     setTrackOn,
+    trackDwell,
+    setTrackDwell,
+    cadUnit,
+    setCadUnit,
+    fmtU,
+    ex,
     onDimension,
     setExtGap,
     formatLength,
