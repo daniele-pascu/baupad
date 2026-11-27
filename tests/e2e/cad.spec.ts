@@ -281,6 +281,7 @@ test('Spurlinien: Ecke anfahren, dann waagrecht in der Flucht einrasten (Linie e
   // Klick-Klick-Linie: Startpunkt frei, dann die Ecke (750, 450) anfahren → gemerkt
   await page.mouse.click(sb.x + 450, sb.y + 600);
   await page.mouse.move(sb.x + 750, sb.y + 450, { steps: 4 });
+  await page.waitForTimeout(450); // kurz stehen bleiben: Punkt wird gemerkt (Verweilzeit)
   // weiter nach links, knapp neben der Höhe der Ecke → Spurlinie waagrecht, Punkt rastet auf die Höhe ein
   await page.mouse.move(sb.x + 560, sb.y + 453, { steps: 6 });
   await expect(page.locator('[data-testid="track-line"][data-axis="h"]')).toHaveCount(1);
@@ -308,6 +309,8 @@ test('Spurlinien: waagrecht zeichnen, genau unter der Ecke → senkrechte Spurli
     await page.mouse.click(sb.x + 450, sb.y + y0);
     // Ecke rechts unten (750, 520) anfahren → gemerkt
     await page.mouse.move(sb.x + 750, sb.y + 520, { steps: 4 });
+  await page.waitForTimeout(450); // kurz stehen bleiben: Punkt wird gemerkt (Verweilzeit)
+    await page.waitForTimeout(450); // kurz stehen bleiben: Punkt wird gemerkt (Verweilzeit)
     // fast waagrecht (12 px tiefer, außerhalb der Waagrecht-Spur des Startpunkts) genau unter die Ecke
     await page.mouse.move(sb.x + 752, sb.y + y0 + 12, { steps: 6 });
     await expect(page.locator('[data-testid="track-line"][data-axis="v"]')).toHaveCount(1);
@@ -336,6 +339,7 @@ test('Spurlinie: Abstand vom gemerkten Punkt eintippen – Anfangs- und Endpunkt
   await pickTool(page, 'draw-line');
   // Ecke rechts oben (750, 450) kurz anfahren, dann rechts davon in ihrer Flucht stehen bleiben
   await page.mouse.move(sb.x + 750, sb.y + 450, { steps: 4 });
+  await page.waitForTimeout(450); // kurz stehen bleiben: Punkt wird gemerkt (Verweilzeit)
   await page.mouse.move(sb.x + 800, sb.y + 452, { steps: 6 });
   await expect(page.locator('[data-testid="track-line"][data-axis="h"]')).toHaveCount(1);
   // 0,5 m eintippen → Anfangspunkt liegt 0,5 m rechts der Ecke
@@ -346,6 +350,7 @@ test('Spurlinie: Abstand vom gemerkten Punkt eintippen – Anfangs- und Endpunkt
   await expect(page.getByTestId('command-bar')).toBeVisible(); // Anfangspunkt gesetzt
   // Endpunkt: Ecke rechts unten (750, 520) anfahren, darunter in ihrer Flucht bleiben, 1 m eintippen
   await page.mouse.move(sb.x + 750, sb.y + 520, { steps: 4 });
+  await page.waitForTimeout(450); // kurz stehen bleiben: Punkt wird gemerkt (Verweilzeit)
   await page.mouse.move(sb.x + 752, sb.y + 580); // in einem Schritt: keine anderen Punkte unterwegs anfahren
   await page.mouse.move(sb.x + 752, sb.y + 581);
   await expect(page.locator('[data-testid="track-line"][data-axis="v"]')).toHaveCount(1);

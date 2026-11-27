@@ -2328,7 +2328,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
             const prompt =
               SELECT_FIRST.has(t) && drawing.cmdSelecting
-                ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${formatMeasure(drawing.joinTol)} m werden geschlossen (Wert eingeben zum Ändern)` : ''}`
+                ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${drawing.fmtU(drawing.joinTol)} ${drawing.cadUnit} werden geschlossen (Wert eingeben zum Ändern)` : ''}`
                 : t === 'wall'
                   ? `Wand ${formatMeasure(drawing.wallThickness)} m stark${drawing.wallHeight ? `, ${formatMeasure(drawing.wallHeight)} m hoch` : ''}: Anfangspunkt und Knicke antippen, Enter bzw. „Fertig“ beendet – Startpunkt antippen bzw. „Schließen“ schließt den Raum. Stärke eintippen (bzw. Stärke;Höhe).`
                 : t === 'symbol'
@@ -2362,8 +2362,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       : `Punkt antippen – Hilfslinie unter ${drawing.guideAngle.replace('.', ',')}°. Anderen Winkel eintippen, z. B. 30.`
                 : t === 'fillet'
                   ? drawing.filletSrc
-                    ? `Zweite Linie antippen – Radius ${formatMeasure(drawing.filletR)} m.`
-                    : `Erste Linie antippen (der angetippte Teil bleibt) – oder die Ecke einer Fläche. Radius ${formatMeasure(drawing.filletR)} m${drawing.filletR ? '' : ' = scharfe Ecke'} (Wert eingeben zum Ändern).`
+                    ? `Zweite Linie antippen – Radius ${drawing.fmtU(drawing.filletR)} ${drawing.cadUnit}.`
+                    : `Erste Linie antippen (der angetippte Teil bleibt) – oder die Ecke einer Fläche. Radius ${drawing.fmtU(drawing.filletR)} ${drawing.cadUnit}${drawing.filletR ? '' : ' = scharfe Ecke'} (Wert eingeben zum Ändern).`
                 : t === 'distance'
                   ? drawing.distRes
                     ? (
@@ -2406,8 +2406,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     ? drawing.offsetSrc
                       ? drawing.offsetThrough
                         ? 'Durch Punkt: Stelle antippen, durch die die parallele Kopie laufen soll.'
-                        : `Seite antippen – die Kopie entsteht im Abstand ${formatMeasure(drawing.offsetDist)} m.`
-                      : `Objekt antippen, das versetzt werden soll · Abstand ${drawing.offsetThrough ? 'durch Punkt' : `${formatMeasure(drawing.offsetDist)} m`} (Wert eingeben zum Ändern).`
+                        : `Seite antippen – die Kopie entsteht im Abstand ${drawing.fmtU(drawing.offsetDist)} ${drawing.cadUnit}.`
+                      : `Objekt antippen, das versetzt werden soll · Abstand ${drawing.offsetThrough ? 'durch Punkt' : `${drawing.fmtU(drawing.offsetDist)} ${drawing.cadUnit}`} (Wert eingeben zum Ändern).`
                     : VECTOR_COMMANDS.has(t)
                       ? drawing.cmdBase
                         ? drawing.copies
@@ -2423,7 +2423,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
                 onKey={drawing.trackKey}
-                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' || t === 'guide' ? (drawing.guideAngle === 'par' || drawing.guideAngle === 'perp' ? 'Abstand, z. B. 0,25' : 'Winkel, z. B. 90') : t === 'fillet' ? 'Radius, z. B. 0,5' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
+                placeholder={t === 'wall' ? `Stärke, z. B. ${drawing.ex(0.25)}` : t === 'offset' ? `Abstand, z. B. ${drawing.ex(0.25)}` : t === 'join' ? `Lücke, z. B. ${drawing.ex(0.05)}` : t === 'symbol' ? `Breite, z. B. ${drawing.ex(0.9)}` : t === 'rotate' || t === 'guide' ? (drawing.guideAngle === 'par' || drawing.guideAngle === 'perp' ? `Abstand, z. B. ${drawing.ex(0.25)}` : 'Winkel, z. B. 90') : t === 'fillet' ? `Radius, z. B. ${drawing.ex(0.5)}` : t === 'scale' ? (drawing.refMode ? `Länge, z. B. ${drawing.ex(4.5)}` : 'Faktor, z. B. 2') : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
@@ -2625,7 +2625,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     else input.value = '';
                   }}
                 >
-                  <input name="dist" inputMode="decimal" placeholder="Abstand in m" aria-label="Abstand in Metern" autoComplete="off" data-testid="guide-dist-input" />
+                  <input name="dist" inputMode="decimal" placeholder={`Abstand in ${drawing.cadUnit}`} aria-label={`Abstand in ${drawing.cadUnit}`} autoComplete="off" data-testid="guide-dist-input" />
                   <button type="submit" className="btn btn-sm" data-testid="guide-dist-set">
                     Setzen
                   </button>

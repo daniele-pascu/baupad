@@ -66,3 +66,22 @@ export function vectorInfo(dxM: number, dyPlanM: number): { len: number; dx: num
   if (angle < 0) angle += 360;
   return { len: Math.hypot(dxM, dy), dx: dxM, dy, angle: Math.round(angle * 10) / 10 % 360 };
 }
+
+/** Einheit für eingetippte Längen beim Zeichnen (je Gerät einstellbar); gespeichert wird immer in Meter */
+export type CadUnit = 'm' | 'cm' | 'mm';
+export const CAD_UNITS: CadUnit[] = ['m', 'cm', 'mm'];
+export const CAD_UNIT_FACTOR: Record<CadUnit, number> = { m: 1, cm: 0.01, mm: 0.001 };
+
+/** Längen einer Eingabe von der eingestellten Einheit in Meter (Winkel bleiben) */
+export function inputInUnit(inp: CadInput | null, u: CadUnit): CadInput | null {
+  const f = CAD_UNIT_FACTOR[u];
+  if (!inp || f === 1) return inp;
+  if (inp.kind === 'dist') return { kind: 'dist', len: inp.len * f };
+  if (inp.kind === 'rel') return { kind: 'rel', dx: inp.dx * f, dy: inp.dy * f };
+  return { ...inp, len: inp.len * f };
+}
+
+/** Beispielwert für Hinweise (Meter → eingestellte Einheit, ohne unnötige Nullen), z. B. 0.25 → „0,25“ bzw. „250“ */
+export function exampleInUnit(m: number, u: CadUnit): string {
+  return (Math.round((m / CAD_UNIT_FACTOR[u]) * 1000) / 1000).toLocaleString('de-DE', { maximumFractionDigits: 3, useGrouping: false });
+}

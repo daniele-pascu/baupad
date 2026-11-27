@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CAD_UNITS, type CadUnit } from '../lib/cad-input';
 import { OBJECT_SNAP_INFO, OBJECT_SNAPS, type SnapKind } from '../lib/snap';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -8,11 +9,18 @@ import { customDialog } from './ui';
  * Objektfang-Arten: ein-/ausschalten und Vorrang festlegen (oben = gewinnt, wenn mehrere Fangpunkte im
  * Fangradius liegen). Die Einstellung gilt je Gerät.
  */
-type Cfg = { order: SnapKind[]; enabled: SnapKind[] };
+type Cfg = { order: SnapKind[]; enabled: SnapKind[]; dwell: number; unit: CadUnit };
+const UNIT_TEXT: Record<CadUnit, string> = { m: 'Meter (z. B. 0,25)', cm: 'Zentimeter (z. B. 25)', mm: 'Millimeter (z. B. 250)' };
 
 function SnapKindsView({ init, close }: { init: Cfg; close(v: Cfg | null): void }) {
   const [order, setOrder] = useState(init.order);
   const [enabled, setEnabled] = useState(init.enabled);
+  const [dwell, setDwell] = useState(String(init.dwell));
+  const [unit, setUnit] = useState(init.unit);
+  const dwellMs = () => {
+    const n = Math.round(Number(dwell.replace(',', '.')));
+    return Number.isFinite(n) ? Math.min(2000, Math.max(0, n)) : init.dwell;
+  };
   const move = (i: number, d: -1 | 1) => {
     const j = i + d;
     if (j < 0 || j >= order.length) return;
@@ -22,7 +30,7 @@ function SnapKindsView({ init, close }: { init: Cfg; close(v: Cfg | null): void 
   };
   return (
     <Modal
-      title="Fangarten"
+      title="Fangarten und Eingabe"
       onClose={() => close(null)}
       testId="snap-kinds-dialog"
       footer={
@@ -33,7 +41,7 @@ function SnapKindsView({ init, close }: { init: Cfg; close(v: Cfg | null): void 
           <button type="button" className="btn" onClick={() => close(null)}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => close({ order, enabled })} data-testid="snap-kinds-save">
+          <button type="button" className="btn btn-primary" onClick={() => close({ order, enabled, dwell: dwellMs(), unit })} data-testid="snap-kinds-save">
             Übernehmen
           </button>
         </>
@@ -58,6 +66,23 @@ function SnapKindsView({ init, close }: { init: Cfg; close(v: Cfg | null): void 
           </li>
         ))}
       </ol>
+      <div className="snap-extra">
+        <label className="field">
+          <span>Spurpunkt merken nach (ms)</span>
+          <input type="number" inputMode="numeric" min={0} max={2000} step={50} value={dwell} onChange={(e) => setDwell(e.target.value)} data-testid="snap-dwell" />
+          <small className="muted">So lange muss der Zeiger auf einem Punkt stehen, bis die Spurlinie daran hängt (0 = sofort).</small>
+        </label>
+        <label className="field">
+          <span>Maße eintippen in</span>
+          <select value={unit} onChange={(e) => setUnit(e.target.value as CadUnit)} data-testid="snap-unit">
+            {CAD_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {UNIT_TEXT[u]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
     </Modal>
   );
 }

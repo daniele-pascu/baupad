@@ -4,8 +4,9 @@ import { createProject, freshStart, pickTool, ribbonGroup, waitSaved } from './h
 /** CAD Phase 1 mit Finger (iPhone, iPad) und Stift (iPad): Mehrfachauswahl, Fenster, Kopieren per Antippen, Eingabe */
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function touchDrag(cdp: CDPSession, from: { x: number; y: number }, to: { x: number; y: number }, steps = 8) {
+async function touchDrag(cdp: CDPSession, from: { x: number; y: number }, to: { x: number; y: number }, steps = 8, hold = 0) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] });
+  if (hold) await pause(hold);
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
     await pause(16);
@@ -332,9 +333,11 @@ for (const input of ['finger', 'stift'] as const)
     const corner = { x: sb.x + (a0.shape.x + a0.shape.w) * 100 * scale, y: sb.y + (a0.shape.y + a0.shape.h) * 100 * scale };
     const end = { x: corner.x + 3, y: A.y };
     void vb;
-    if (input === 'finger') await touchDrag(cdp, { x: corner.x + 1, y: corner.y + 1 }, end, 12);
+    // auf der Ecke kurz gedrückt halten: Punkt wird gemerkt (Verweilzeit), dann ziehen
+    if (input === 'finger') await touchDrag(cdp, { x: corner.x + 1, y: corner.y + 1 }, end, 12, 450);
     else {
       await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: corner.x + 1, y: corner.y + 1, button: 'left', buttons: 1, clickCount: 1, pointerType: 'pen' } as never);
+      await pause(450);
       for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: corner.x + 1 + ((end.x - corner.x - 1) * i) / 12, y: corner.y + 1 + ((end.y - corner.y - 1) * i) / 12, button: 'left', buttons: 1, pointerType: 'pen' } as never);
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: end.x, y: end.y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' } as never);
     }

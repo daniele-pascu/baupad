@@ -12052,6 +12052,25 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   pointer-events: none;
   filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
 }
+.snap-extra {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.snap-extra small {
+  display: block;
+  margin-top: 4px;
+}
+.track-cross {
+  stroke: #12a150;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+  filter: drop-shadow(0 0 1px #fff);
+}
 .track-acquired {
   stroke: #12a150;
   stroke-width: 2.2;

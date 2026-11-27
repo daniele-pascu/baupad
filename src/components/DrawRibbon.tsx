@@ -130,8 +130,11 @@ export function DrawRibbon({
   );
 
   const openSnapKinds = async () => {
-    const c = await snapKindsDialog(drawing.snapCfg);
-    if (c) drawing.setSnapCfg(c);
+    const c = await snapKindsDialog({ ...drawing.snapCfg, dwell: drawing.trackDwell, unit: drawing.cadUnit });
+    if (!c) return;
+    drawing.setSnapCfg({ order: c.order, enabled: c.enabled });
+    drawing.setTrackDwell(c.dwell);
+    drawing.setCadUnit(c.unit);
   };
 
   const editGroup = (
@@ -291,7 +294,7 @@ export function DrawRibbon({
               {btn('view-track', 'ruler', 'Spuren', () => drawing.setTrackOn(!drawing.trackOn), { pressed: drawing.trackOn, title: 'Spurlinien (F11): waagrecht und senkrecht durch angefahrene Fangpunkte' })}
               {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
               {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
-              {btn('view-snap-kinds', 'snapkinds', 'Fangarten', () => void openSnapKinds(), { title: 'Objektfang-Arten ein-/ausschalten und Vorrang festlegen (je Gerät)' })}
+              {btn('view-snap-kinds', 'snapkinds', 'Fangarten', () => void openSnapKinds(), { title: 'Objektfang-Arten, Verweilzeit der Spurlinien und Einheit der Eingabe (je Gerät)' })}
             </div>
             <div className="tool-group" role="group" aria-label="Hilfslinien">
               {toolBtn('guide')}
